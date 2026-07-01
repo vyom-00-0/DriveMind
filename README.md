@@ -172,6 +172,18 @@ A demo video or GIF can be added inside:
 docs/demo/
 ```
 
+Demo script:
+
+```text
+docs/demo/demo-script.md
+```
+
+Demo recording checklist:
+
+```text
+docs/checklists/demo-recording-checklist.md
+```
+
 Recommended demo flow:
 
 1. Start MongoDB and Neo4j
@@ -227,9 +239,11 @@ PROJECT_SUMMARY.md
 docs/project-status.md
 docs/ROADMAP.md
 docs/presentation/hackathon-pitch.md
+docs/demo/demo-script.md
+docs/checklists/demo-recording-checklist.md
+docs/checklists/hackathon-final-checklist.md
 docs/architecture/system-diagram.md
 docs/architecture/system-logic.md
-docs/checklists/hackathon-final-checklist.md
 docs/github-repo-setup.md
 ```
 
@@ -322,9 +336,11 @@ DriveMind/
 │   │   ├── system-diagram.md
 │   │   └── system-logic.md
 │   ├── checklists/
+│   │   ├── demo-recording-checklist.md
 │   │   └── hackathon-final-checklist.md
 │   ├── db/
 │   ├── demo/
+│   │   └── demo-script.md
 │   ├── ml/
 │   ├── presentation/
 │   │   └── hackathon-pitch.md
@@ -920,7 +936,7 @@ docs/checklists/hackathon-final-checklist.md
 Current completion:
 
 ```text
-Approximately 95–96% complete as a hackathon and portfolio MVP.
+Approximately 96–97% complete as a hackathon and portfolio MVP.
 ```
 
 ---
@@ -960,7 +976,7 @@ Planned improvements:
 - Add map-based visualization
 - Add authentication
 - Add full Dockerization for backend, frontend, and AI service
-- Add CI/CD pipeline
+- Add GitHub Actions CI/CD
 - Add more advanced graph queries
 - Add vehicle-to-vehicle recommendation simulation
 - Add anomaly detection
