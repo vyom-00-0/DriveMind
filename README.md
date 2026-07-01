@@ -164,6 +164,26 @@ The frontend dashboard displays:
 
 ---
 
+## Demo
+
+A demo video or GIF can be added inside:
+
+```text
+docs/demo/
+```
+
+Recommended demo flow:
+
+1. Start MongoDB and Neo4j
+2. Start AI service
+3. Start backend
+4. Start frontend
+5. Open dashboard
+6. Click `Send Risky Vehicle Telemetry`
+7. Show real-time alert, AI prediction, risk score, and graph memory update
+
+---
+
 ## Dashboard
 
 ![DriveMind Dashboard](docs/screenshots/dashboard-working.png)
@@ -269,6 +289,7 @@ DriveMind/
 │   ├── api/
 │   ├── architecture/
 │   ├── db/
+│   ├── demo/
 │   ├── ml/
 │   └── screenshots/
 │       └── dashboard-working.png
