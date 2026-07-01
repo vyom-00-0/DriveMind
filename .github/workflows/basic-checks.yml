@@ -1,0 +1,48 @@
+name: DriveMind Basic Checks
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  repository-checks:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check repository files
+        run: |
+          test -f README.md
+          test -f LICENSE
+          test -f CONTRIBUTING.md
+          test -f SECURITY.md
+          test -f CODE_OF_CONDUCT.md
+          test -f PROJECT_SUMMARY.md
+          test -f docker-compose.yml
+
+      - name: Check documentation files
+        run: |
+          test -f docs/ROADMAP.md
+          test -f docs/project-status.md
+          test -f docs/presentation/hackathon-pitch.md
+          test -f docs/checklists/hackathon-final-checklist.md
+          test -f docs/checklists/demo-recording-checklist.md
+          test -f docs/demo/demo-script.md
+          test -f docs/architecture/system-diagram.md
+
+      - name: Check scripts exist
+        run: |
+          test -f scripts/start-databases.sh
+          test -f scripts/start-backend.sh
+          test -f scripts/start-ai-service.sh
+          test -f scripts/start-frontend.sh
+          test -f scripts/test-backend-health.sh
+          test -f scripts/test-ai-health.sh
+          test -f scripts/test-risky-telemetry.sh
+          test -f scripts/test-full-system.sh
