@@ -314,6 +314,7 @@ DriveMind/
 │   ├── start-frontend.sh
 │   ├── test-ai-health.sh
 │   ├── test-backend-health.sh
+│   ├── test-full-system.sh
 │   └── test-risky-telemetry.sh
 │
 ├── docker-compose.yml
@@ -530,6 +531,30 @@ This checks the full backend flow:
 - risk scoring
 - experience creation
 - Neo4j graph memory creation
+
+Test the complete DriveMind system:
+
+```bash
+./scripts/test-full-system.sh
+```
+
+This runs:
+
+- backend health test
+- AI service health test
+- risky telemetry test
+
+Expected full system test result:
+
+```text
+Backend health: OK
+AI service health: OK
+Model loaded: true
+Predicted intent: brake
+Risk level: critical
+Experience created: true
+Graph memory created: true
+```
 
 ---
 
