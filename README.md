@@ -212,6 +212,21 @@ Dashboard sections:
 
 ---
 
+## Project Documentation
+
+Additional project documentation:
+
+```text
+PROJECT_SUMMARY.md
+docs/project-status.md
+docs/ROADMAP.md
+docs/presentation/hackathon-pitch.md
+docs/architecture/system-diagram.md
+docs/architecture/system-logic.md
+```
+
+---
+
 ## Tech Stack
 
 ### Frontend
@@ -304,6 +319,7 @@ DriveMind/
 │   ├── presentation/
 │   │   └── hackathon-pitch.md
 │   ├── ROADMAP.md
+│   ├── project-status.md
 │   └── screenshots/
 │       └── dashboard-working.png
 │
@@ -326,6 +342,7 @@ DriveMind/
 ├── CODE_OF_CONDUCT.md
 ├── CONTRIBUTING.md
 ├── LICENSE
+├── PROJECT_SUMMARY.md
 ├── SECURITY.md
 ├── docker-compose.yml
 ├── README.md
@@ -866,6 +883,28 @@ Current training accuracy during testing:
 ```
 
 This accuracy is only for synthetic test data and should not be treated as real-world performance.
+
+---
+
+## Project Status
+
+Project summary:
+
+```text
+PROJECT_SUMMARY.md
+```
+
+Current MVP status:
+
+```text
+docs/project-status.md
+```
+
+Current completion:
+
+```text
+Approximately 95% complete as a hackathon and portfolio MVP.
+```
 
 ---
 
