@@ -2,6 +2,7 @@ const Vehicle = require("../models/Vehicle");
 const Telemetry = require("../models/Telemetry");
 const Experience = require("../models/Experience");
 const { calculateRiskFromTelemetry } = require("../services/riskService");
+const { predictIntent } = require("../services/aiService");
 
 const createTelemetry = async (req, res) => {
   try {
@@ -47,6 +48,15 @@ const createTelemetry = async (req, res) => {
       { upsert: true, new: true }
     );
 
+    const intentPrediction = await predictIntent({
+      speed,
+      acceleration,
+      brakePressure,
+      steeringAngle,
+      laneOffset,
+      distanceToFrontVehicle
+    });
+
     const riskResult = calculateRiskFromTelemetry({
       speed,
       acceleration,
@@ -77,6 +87,7 @@ const createTelemetry = async (req, res) => {
       message: "Telemetry stored successfully",
       data: {
         telemetry,
+        intentPrediction,
         risk: riskResult,
         experienceCreated: savedExperience ? true : false,
         experience: savedExperience
