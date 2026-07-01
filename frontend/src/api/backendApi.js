@@ -17,6 +17,11 @@ export const getRoadRisk = async (roadSegmentId) => {
   return response.data;
 };
 
+export const getGraphOverview = async () => {
+  const response = await axios.get(`${API_BASE_URL}/api/graph`);
+  return response.data;
+};
+
 export const sendTelemetry = async (telemetryData) => {
   const response = await axios.post(`${API_BASE_URL}/api/telemetry`, telemetryData);
   return response.data;

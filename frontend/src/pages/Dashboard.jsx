@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   getAllExperiences,
+  getGraphOverview,
   getHealthStatus,
   getRoadRisk,
   sendTelemetry
@@ -23,6 +24,7 @@ function Dashboard() {
   const [health, setHealth] = useState(null);
   const [experiences, setExperiences] = useState([]);
   const [roadRisk, setRoadRisk] = useState(null);
+  const [graphRelationships, setGraphRelationships] = useState([]);
   const [latestAlert, setLatestAlert] = useState(null);
   const [telemetryResponse, setTelemetryResponse] = useState(null);
 
@@ -31,10 +33,12 @@ function Dashboard() {
       const healthData = await getHealthStatus();
       const experienceData = await getAllExperiences();
       const riskData = await getRoadRisk("curve_42");
+      const graphData = await getGraphOverview();
 
       setHealth(healthData);
       setExperiences(experienceData.data || []);
       setRoadRisk(riskData);
+      setGraphRelationships(graphData.data || []);
     } catch (error) {
       console.error("Failed to load dashboard data:", error);
     }
@@ -68,11 +72,11 @@ function Dashboard() {
         <header className="mb-8">
           <h1 className="text-4xl font-bold text-cyan-400">DriveMind</h1>
           <p className="text-slate-300 mt-2">
-            Collective vehicle memory, intent prediction, and realtime risk alerts.
+            Collective vehicle memory, intent prediction, graph intelligence, and realtime risk alerts.
           </p>
         </header>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-slate-900 border border-slate-700 rounded-xl p-4">
             <h2 className="text-lg font-semibold text-cyan-300">Backend Health</h2>
             <p className="mt-2 text-slate-300">
@@ -99,6 +103,11 @@ function Dashboard() {
           <div className="bg-slate-900 border border-slate-700 rounded-xl p-4">
             <h2 className="text-lg font-semibold text-cyan-300">Experience Count</h2>
             <p className="mt-2 text-3xl font-bold">{experiences.length}</p>
+          </div>
+
+          <div className="bg-slate-900 border border-slate-700 rounded-xl p-4">
+            <h2 className="text-lg font-semibold text-cyan-300">Graph Links</h2>
+            <p className="mt-2 text-3xl font-bold">{graphRelationships.length}</p>
           </div>
         </div>
 
@@ -139,6 +148,36 @@ function Dashboard() {
             </div>
           ) : (
             <p className="text-slate-400">No realtime alert received yet.</p>
+          )}
+        </div>
+
+        <div className="bg-slate-900 border border-slate-700 rounded-xl p-4 mb-6">
+          <h2 className="text-xl font-semibold text-cyan-300 mb-3">
+            Collective Memory Graph
+          </h2>
+
+          {graphRelationships.length > 0 ? (
+            <div className="space-y-3">
+              {graphRelationships.map((item, index) => (
+                <div
+                  key={index}
+                  className="bg-slate-950 border border-slate-800 rounded-lg p-3"
+                >
+                  <p className="font-semibold text-cyan-200">
+                    {item.start.labels.join(", ")} → {item.relationship.type} →{" "}
+                    {item.end.labels.join(", ")}
+                  </p>
+                  <p className="text-slate-400 text-sm mt-1">
+                    Start: {JSON.stringify(item.start.properties)}
+                  </p>
+                  <p className="text-slate-400 text-sm">
+                    End: {JSON.stringify(item.end.properties)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-slate-400">No graph relationships found yet.</p>
           )}
         </div>
 
