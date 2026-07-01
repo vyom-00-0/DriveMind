@@ -164,6 +164,28 @@ The frontend dashboard displays:
 
 ---
 
+## Dashboard
+
+![DriveMind Dashboard](docs/screenshots/dashboard-working.png)
+
+The dashboard is available at:
+
+```text
+http://localhost:5173
+```
+
+Dashboard sections:
+
+- Backend Health
+- Road Risk
+- Experience Count
+- Latest Risk Alert
+- Collective Memory Graph
+- Experience Memory
+- Simulated risky telemetry button
+
+---
+
 ## Tech Stack
 
 ### Frontend
@@ -247,7 +269,9 @@ DriveMind/
 │   ├── api/
 │   ├── architecture/
 │   ├── db/
-│   └── ml/
+│   ├── ml/
+│   └── screenshots/
+│       └── dashboard-working.png
 │
 ├── scripts/
 │   ├── start-ai-service.sh
@@ -696,26 +720,6 @@ risk-alert
   "recommendedAction": "Immediate braking or avoidance required"
 }
 ```
-
----
-
-## Dashboard
-
-The dashboard is available at:
-
-```text
-http://localhost:5173
-```
-
-Dashboard sections:
-
-- Backend Health
-- Road Risk
-- Experience Count
-- Latest Risk Alert
-- Collective Memory Graph
-- Experience Memory
-- Simulated risky telemetry button
 
 ---
 
