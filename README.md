@@ -182,6 +182,12 @@ Recommended demo flow:
 6. Click `Send Risky Vehicle Telemetry`
 7. Show real-time alert, AI prediction, risk score, and graph memory update
 
+Presentation notes are available here:
+
+```text
+docs/presentation/hackathon-pitch.md
+```
+
 ---
 
 ## Dashboard
@@ -291,6 +297,8 @@ DriveMind/
 │   ├── db/
 │   ├── demo/
 │   ├── ml/
+│   ├── presentation/
+│   │   └── hackathon-pitch.md
 │   └── screenshots/
 │       └── dashboard-working.png
 │
