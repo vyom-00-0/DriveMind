@@ -9,10 +9,12 @@ const telemetryRoutes = require("./routes/telemetryRoutes");
 const experienceRoutes = require("./routes/experienceRoutes");
 const roadRiskRoutes = require("./routes/roadRiskRoutes");
 const connectDB = require("./config/db");
+const { connectNeo4j } = require("./config/neo4j");
 const { initSocket } = require("./services/socketService");
 
 dotenv.config();
 connectDB();
+connectNeo4j();
 
 const app = express();
 const server = http.createServer(app);

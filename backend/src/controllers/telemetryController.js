@@ -4,6 +4,7 @@ const Experience = require("../models/Experience");
 const { calculateRiskFromTelemetry } = require("../services/riskService");
 const { predictIntent } = require("../services/aiService");
 const { emitRiskAlert } = require("../services/socketService");
+const { createExperienceGraph } = require("../services/graphService");
 
 const createTelemetry = async (req, res) => {
   try {
@@ -69,6 +70,7 @@ const createTelemetry = async (req, res) => {
     });
 
     let savedExperience = null;
+    let graphMemoryCreated = false;
 
     if (riskResult.riskScore >= 0.6 && riskResult.events.length > 0) {
       savedExperience = await Experience.create({
@@ -81,6 +83,18 @@ const createTelemetry = async (req, res) => {
         confidence: riskResult.confidence,
         recommendedAction: riskResult.recommendedAction
       });
+
+      await createExperienceGraph({
+        vehicleId,
+        roadSegmentId,
+        weather,
+        eventType: riskResult.events[0],
+        reason: riskResult.reasons.join(", "),
+        riskScore: riskResult.riskScore,
+        recommendedAction: riskResult.recommendedAction
+      });
+
+      graphMemoryCreated = true;
 
       emitRiskAlert({
         type: "risk-alert",
@@ -105,6 +119,7 @@ const createTelemetry = async (req, res) => {
         intentPrediction,
         risk: riskResult,
         experienceCreated: savedExperience ? true : false,
+        graphMemoryCreated,
         experience: savedExperience
       }
     });
