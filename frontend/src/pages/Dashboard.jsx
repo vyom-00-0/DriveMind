@@ -4,64 +4,27 @@ import {
   getGraphOverview,
   getHealthStatus,
   getRoadRisk,
-  getRiskClusters,
-  sendTelemetry
+  getRiskClusters
 } from "../api/backendApi";
 import { socket } from "../socket/socketClient";
 import RiskMap from "../components/RiskMap";
-
-const SCENARIOS = {
-  speeding: {
-    label: "High Speed Hazard",
-    telemetry: {
-      speed: 85,
-      acceleration: 0.5,
-      brakePressure: 0.15,
-      steeringAngle: 5,
-      laneOffset: 0.15,
-      distanceToFrontVehicle: 50,
-      weather: "clear"
-    }
-  },
-  braking: {
-    label: "Sudden Braking / Tailgating",
-    telemetry: {
-      speed: 65,
-      acceleration: -2.3,
-      brakePressure: 0.9,
-      steeringAngle: 12,
-      laneOffset: 0.25,
-      distanceToFrontVehicle: 4,
-      weather: "rain"
-    }
-  },
-  near_miss: {
-    label: "Low Visibility / Near Miss",
-    telemetry: {
-      speed: 48,
-      acceleration: -1.2,
-      brakePressure: 0.75,
-      steeringAngle: 25,
-      laneOffset: 0.55,
-      distanceToFrontVehicle: 6,
-      weather: "fog"
-    }
-  }
-};
+import VehicleCockpit from "./VehicleCockpit";
+import VehicleAuth from "./VehicleAuth";
+import V2VSharing from "./V2VSharing";
 
 function Dashboard({ onLogout, user }) {
+  // Navigation tabs: 'monitor', 'cockpit', 'auth', 'v2v'
+  const [activeTab, setActiveTab] = useState("monitor");
+
   const [health, setHealth] = useState(null);
   const [experiences, setExperiences] = useState([]);
   const [roadRisk, setRoadRisk] = useState(null);
   const [graphRelationships, setGraphRelationships] = useState([]);
   const [riskClusters, setRiskClusters] = useState([]);
   const [latestAlert, setLatestAlert] = useState(null);
-  const [telemetryResponse, setTelemetryResponse] = useState(null);
-
-  // Simulator configurations
+  
   const [selectedSegment, setSelectedSegment] = useState("curve_42");
-  const [selectedScenario, setSelectedScenario] = useState("braking");
-  const [simulating, setSimulating] = useState(false);
+  const [provisionedVehicleId, setProvisionedVehicleId] = useState("");
 
   const loadDashboardData = async () => {
     try {
@@ -74,7 +37,7 @@ function Dashboard({ onLogout, user }) {
       try {
         clusterData = await getRiskClusters();
       } catch (err) {
-        console.warn("Failed to load Neo4j risk clusters (Neo4j might be unpopulated):", err);
+        console.warn("Failed to load Neo4j risk clusters:", err);
       }
 
       setHealth(healthData);
@@ -87,377 +50,330 @@ function Dashboard({ onLogout, user }) {
     }
   };
 
-  const handleSendTestTelemetry = async () => {
-    setSimulating(true);
-    setTelemetryResponse(null);
-
-    const scenarioTelemetry = SCENARIOS[selectedScenario].telemetry;
-    const payload = {
-      vehicleId: `vehicle_sim_${Math.floor(Math.random() * 1000)}`,
-      roadSegmentId: selectedSegment,
-      ...scenarioTelemetry
-    };
-
-    try {
-      const response = await sendTelemetry(payload);
-      setTelemetryResponse(response);
-      await loadDashboardData();
-    } catch (error) {
-      console.error("Failed to send telemetry:", error);
-    } finally {
-      setSimulating(false);
-    }
+  const handleVehicleActivated = (vehicleId) => {
+    setProvisionedVehicleId(vehicleId);
+    // Auto shift user to the Cockpit simulator so they can start testing immediately
+    setActiveTab("cockpit");
   };
 
   useEffect(() => {
     loadDashboardData();
+    setProvisionedVehicleId(localStorage.getItem("active_vehicle_id") || "None (Legacy)");
 
-    socket.on("risk-alert", (alert) => {
+    const handleSocketAlert = (alert) => {
       setLatestAlert(alert);
-    });
+      loadDashboardData(); // reload ledgers on new events
+    };
+
+    socket.on("risk-alert", handleSocketAlert);
 
     return () => {
-      socket.off("risk-alert");
+      socket.off("risk-alert", handleSocketAlert);
     };
-  }, [selectedSegment]); // reload details if segment selection updates
+  }, [selectedSegment]);
 
   return (
     <div className="min-h-screen bg-slate-950 text-white p-6 relative">
-      <div className="max-w-6xl mx-auto">
+      {/* Background radial glows */}
+      <div className="absolute top-[-20%] right-[-10%] w-[600px] h-[600px] rounded-full bg-cyan-950/10 blur-[130px] pointer-events-none"></div>
+      <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-indigo-950/20 blur-[120px] pointer-events-none"></div>
+
+      <div className="max-w-6xl mx-auto z-10 relative">
         
-        {/* Dashboard Header */}
-        <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-800/80 pb-6 mb-8 gap-4">
+        {/* Header Block */}
+        <header className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-900 pb-6 mb-8 gap-4">
           <div>
-            <h1 className="text-4xl font-extrabold tracking-tight text-cyan-400">DriveMind</h1>
+            <div className="flex items-center space-x-2.5">
+              <h1 className="text-4xl font-extrabold tracking-tight text-cyan-400">DriveMind</h1>
+              <span className="bg-cyan-500/10 text-cyan-400 border border-cyan-900/40 text-[10px] font-extrabold uppercase px-2 py-0.5 rounded tracking-wide">
+                Control Hub
+              </span>
+            </div>
             <p className="text-slate-400 text-sm mt-1">
               Collective Memory Graph & Live Driver Intent Prediction Center
             </p>
           </div>
-          <div className="flex items-center space-x-4 bg-slate-900 border border-slate-850 rounded-xl px-4 py-2">
+
+          <div className="flex items-center space-x-4 bg-slate-900/60 backdrop-blur-sm border border-slate-850 rounded-xl px-4 py-2.5">
             <div className="text-right">
-              <p className="text-xs text-slate-500 uppercase font-semibold">Authorized Admin</p>
-              <p className="text-sm text-cyan-200 font-bold">{user?.username || "root"}</p>
+              <span className="text-[9px] text-slate-500 uppercase font-bold block">Operator Portal</span>
+              <span className="text-xs font-bold text-slate-300">{user?.username || "administrator"}</span>
             </div>
+            <div className="w-px h-8 bg-slate-800"></div>
             <button
               onClick={onLogout}
-              className="bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-900/60 text-xs px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+              className="bg-red-500/15 hover:bg-red-500/25 border border-red-900/50 text-red-300 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all cursor-pointer"
             >
               Sign Out
             </button>
           </div>
         </header>
 
-        {/* Primary Health & Risk Badges */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-slate-900/40 border border-slate-800 rounded-xl p-4">
-            <h2 className="text-xs font-semibold text-cyan-400 uppercase tracking-wider">Cloud Health Status</h2>
-            <p className="mt-2 text-md font-semibold text-slate-200">
-              {health ? health.message : "Checking connection..."}
-            </p>
-            {health && (
-              <span className="inline-block mt-2 px-2 py-0.5 text-[10px] font-bold rounded bg-emerald-500/20 text-emerald-300 border border-emerald-900/50">
-                Online
-              </span>
-            )}
-          </div>
-
-          <div className="bg-slate-900/40 border border-slate-800 rounded-xl p-4">
-            <h2 className="text-xs font-semibold text-cyan-400 uppercase tracking-wider">Active Road Segment</h2>
-            <p className="mt-2 text-md font-semibold text-slate-200 capitalize">
-              {selectedSegment.replace("_", " ")}
-            </p>
-            <p className="text-xs text-slate-400 mt-1">
-              Risk Index:{" "}
-              <span className={`font-bold uppercase ${
-                roadRisk?.riskLevel === "critical" || roadRisk?.riskLevel === "high" 
-                  ? "text-red-400" 
-                  : "text-emerald-400"
-              }`}>
-                {roadRisk?.riskLevel || "Low"}
-              </span>{" "}
-              ({roadRisk?.riskScore ?? 0})
-            </p>
-          </div>
-
-          <div className="bg-slate-900/40 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
-            <div>
-              <h2 className="text-xs font-semibold text-cyan-400 uppercase tracking-wider">Stored Experience Keys</h2>
-              <p className="mt-1 text-3xl font-extrabold text-white">{experiences.length}</p>
-            </div>
-            <span className="text-[10px] text-slate-500">Document records in MongoDB</span>
-          </div>
-
-          <div className="bg-slate-900/40 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
-            <div>
-              <h2 className="text-xs font-semibold text-cyan-400 uppercase tracking-wider">Graph Relations</h2>
-              <p className="mt-1 text-3xl font-extrabold text-white">{graphRelationships.length}</p>
-            </div>
-            <span className="text-[10px] text-slate-500">RDF Knowledge Nodes in Neo4j</span>
-          </div>
-        </div>
-
-        {/* Dynamic Threat Risk Map */}
-        <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-5 mb-6">
-          <div className="flex justify-between items-center mb-4">
-            <div>
-              <h3 className="text-lg font-bold text-slate-200">Interactive Risk Map</h3>
-              <p className="text-xs text-slate-500">Live monitoring of road segments and vehicle threats</p>
-            </div>
-            <div className="flex items-center space-x-2">
-              <label className="text-xs text-slate-400">Viewing Segment:</label>
-              <select
-                value={selectedSegment}
-                onChange={(e) => setSelectedSegment(e.target.value)}
-                className="bg-slate-950 border border-slate-800 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-cyan-500"
-              >
-                <option value="curve_42">Gateway Curve (Curve-42)</option>
-                <option value="highway_101">Marine Drive (Highway-101)</option>
-                <option value="intersection_alpha">Crawford (Intersection-Alpha)</option>
-              </select>
-            </div>
-          </div>
-          <RiskMap activeRoadRisk={roadRisk} latestAlert={latestAlert} />
-        </div>
-
-        {/* Control Simulator & Live Alerts */}
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 mb-6">
+        {/* Tab Selection Navigation Bar */}
+        <nav className="flex flex-wrap gap-2 border-b border-slate-900 pb-4 mb-6">
+          <button
+            onClick={() => setActiveTab("monitor")}
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+              activeTab === "monitor"
+                ? "bg-cyan-500/10 border-cyan-500/80 text-cyan-400"
+                : "bg-slate-900/45 border-slate-900 text-slate-400 hover:border-slate-800"
+            }`}
+          >
+            📊 System Monitor
+          </button>
           
-          {/* Simulator Panel */}
-          <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-5 md:col-span-6 flex flex-col justify-between">
-            <div>
-              <h3 className="text-lg font-bold text-slate-200 mb-1">Vehicle Telemetry Simulator</h3>
-              <p className="text-xs text-slate-500 mb-4">Inject simulated driving events to train AI & log memories</p>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                    Target Segment
-                  </label>
-                  <select
-                    value={selectedSegment}
-                    onChange={(e) => setSelectedSegment(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 text-sm rounded-xl px-3 py-2.5 focus:outline-none focus:border-cyan-500"
-                  >
-                    <option value="curve_42">Gateway Curve (Curve-42)</option>
-                    <option value="highway_101">Marine Drive (Highway-101)</option>
-                    <option value="intersection_alpha">Crawford (Intersection-Alpha)</option>
-                  </select>
-                </div>
+          <button
+            onClick={() => setActiveTab("cockpit")}
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+              activeTab === "cockpit"
+                ? "bg-cyan-500/10 border-cyan-500/80 text-cyan-400"
+                : "bg-slate-900/45 border-slate-900 text-slate-400 hover:border-slate-800"
+            }`}
+          >
+            🏎️ Sensor Simulator Cockpit
+          </button>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                    Hazard Scenario
-                  </label>
-                  <div className="grid grid-cols-1 gap-2">
-                    {Object.entries(SCENARIOS).map(([key, item]) => (
-                      <button
-                        key={key}
-                        onClick={() => setSelectedScenario(key)}
-                        className={`text-left px-3.5 py-2.5 rounded-xl text-xs border font-medium transition-all cursor-pointer ${
-                          selectedScenario === key
-                            ? "bg-cyan-500/10 border-cyan-500 text-cyan-300"
-                            : "bg-slate-950/45 border-slate-850 text-slate-400 hover:border-slate-800"
-                        }`}
-                      >
-                        {item.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
+          <button
+            onClick={() => setActiveTab("auth")}
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+              activeTab === "auth"
+                ? "bg-cyan-500/10 border-cyan-500/80 text-cyan-400"
+                : "bg-slate-900/45 border-slate-900 text-slate-400 hover:border-slate-800"
+            }`}
+          >
+            🔑 Vehicle Auth & Provisioning
+          </button>
 
-            <div className="pt-6">
-              <button
-                onClick={handleSendTestTelemetry}
-                disabled={simulating}
-                className="w-full bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold py-2.5 rounded-xl text-sm transition-colors flex items-center justify-center cursor-pointer shadow-lg shadow-cyan-500/5"
-              >
-                {simulating ? "Transmitting..." : "Send Secure Telemetry"}
-              </button>
+          <button
+            onClick={() => setActiveTab("v2v")}
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+              activeTab === "v2v"
+                ? "bg-cyan-500/10 border-cyan-500/80 text-cyan-400"
+                : "bg-slate-900/45 border-slate-900 text-slate-400 hover:border-slate-800"
+            }`}
+          >
+            📡 V2V Sharing warnings
+          </button>
+        </nav>
 
-              {telemetryResponse && (
-                <div className="mt-4 bg-slate-950/80 rounded-xl p-3.5 border border-slate-850 max-h-[120px] overflow-auto">
-                  <p className="text-[10px] text-slate-500 font-bold uppercase mb-1">API Response Payload</p>
-                  <pre className="text-[11px] text-cyan-300/90 font-mono">
-                    {JSON.stringify({
-                      intent: telemetryResponse.data?.intentPrediction?.predictedIntent,
-                      confidence: telemetryResponse.data?.intentPrediction?.confidence,
-                      riskScore: telemetryResponse.data?.risk?.riskScore,
-                      riskLevel: telemetryResponse.data?.risk?.riskLevel,
-                      experienceCreated: telemetryResponse.data?.experienceCreated
-                    }, null, 2)}
-                  </pre>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Real-time Alerts Panel */}
-          <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-5 md:col-span-6 flex flex-col justify-between">
-            <div>
-              <h3 className="text-lg font-bold text-slate-200 mb-1">Live Threat Feed</h3>
-              <p className="text-xs text-slate-500 mb-4">Socket.IO real-time ADAS alerts pushed to driver nodes</p>
-              
-              <div className="space-y-3 min-h-[160px] flex flex-col justify-center">
-                {latestAlert ? (
-                  <div className="bg-red-950/20 border border-red-800/40 rounded-xl p-4 shadow-inner relative overflow-hidden">
-                    <div className="absolute top-0 left-0 w-1.5 h-full bg-red-500"></div>
-                    <div className="flex justify-between items-start">
-                      <span className="bg-red-500/10 text-red-400 text-[10px] font-extrabold uppercase px-2 py-0.5 rounded border border-red-900/40">
-                        {latestAlert.riskLevel} ALERT
-                      </span>
-                      <span className="text-[10px] text-slate-500 font-mono">now</span>
-                    </div>
-                    <p className="font-bold text-slate-200 text-sm mt-3">{latestAlert.message}</p>
-                    
-                    <div className="grid grid-cols-2 gap-4 mt-4 pt-3 border-t border-slate-800/60 text-xs text-slate-400">
-                      <div>
-                        <p className="text-[10px] uppercase text-slate-500">Predicted Intent</p>
-                        <p className="font-semibold text-slate-300 capitalize">{latestAlert.predictedIntent}</p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] uppercase text-slate-500">Action Required</p>
-                        <p className="font-semibold text-amber-400 capitalize">{latestAlert.recommendedAction?.replace(/_/g, " ")}</p>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <span className="text-4xl block mb-2 opacity-40">📡</span>
-                    <p className="text-xs text-slate-500 font-medium">Listening for live hazard warning signals...</p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="bg-slate-950/40 border border-slate-850 rounded-xl p-3 text-center">
-              <span className="inline-block w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping mr-2"></span>
-              <span className="text-xs text-slate-400 font-semibold">Socket Client Connected</span>
-            </div>
-          </div>
-
-        </div>
-
-        {/* Neo4j Risk Clusters & Relationships */}
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 mb-6">
+        {/* Tab Panels */}
+        <main className="space-y-6">
           
-          {/* Neo4j Risk Clusters */}
-          <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-5 md:col-span-5">
-            <h3 className="text-lg font-bold text-slate-200 mb-1">Neo4j Shared Risk Clusters</h3>
-            <p className="text-xs text-slate-500 mb-4">Traversal insights linking segments sharing hazards</p>
-
-            <div className="space-y-2 max-h-[300px] overflow-auto">
-              {riskClusters.length > 0 ? (
-                riskClusters.map((cluster, index) => (
-                  <div
-                    key={index}
-                    className="bg-slate-950/70 border border-slate-850 rounded-xl p-3 text-xs flex justify-between items-center"
-                  >
-                    <div>
-                      <p className="font-bold text-slate-200">
-                        {cluster.segmentA} ↔ {cluster.segmentB}
-                      </p>
-                      <p className="text-slate-500 text-[10px] mt-0.5 uppercase tracking-wider font-semibold">
-                        Shared hazard: {cluster.sharedRiskType?.replace(/_/g, " ")}
-                      </p>
-                    </div>
-                    <span className="bg-cyan-500/10 border border-cyan-900/50 text-cyan-300 text-[10px] font-bold px-2 py-1 rounded">
-                      Strength: {cluster.strength}
+          {/* TAB 1: System Monitor */}
+          {activeTab === "monitor" && (
+            <div className="space-y-6 animate-fade-in">
+              {/* Core Badges Row */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-slate-900/40 border border-slate-800 rounded-xl p-4">
+                  <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block">Service Health</span>
+                  <span className="text-md font-bold text-slate-200 mt-1 block">
+                    {health ? health.message : "Pinging API..."}
+                  </span>
+                  {health && (
+                    <span className="inline-block mt-2 px-1.5 py-0.5 text-[9px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-900/30 rounded">
+                      Connected
                     </span>
-                  </div>
-                ))
-              ) : (
-                <div className="text-center py-12 border border-dashed border-slate-800 rounded-xl">
-                  <p className="text-xs text-slate-600 font-medium">No clusters calculated yet.</p>
-                  <p className="text-[10px] text-slate-700 mt-1">Populate segments with identical risks to register links.</p>
+                  )}
                 </div>
-              )}
-            </div>
-          </div>
 
-          {/* Collective Graph Memory List */}
-          <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-5 md:col-span-7">
-            <h3 className="text-lg font-bold text-slate-200 mb-1">Knowledge Relationships</h3>
-            <p className="text-xs text-slate-500 mb-4">Graph structure parsed directly from Neo4j memory nodes</p>
-
-            <div className="space-y-3 max-h-[300px] overflow-auto">
-              {graphRelationships.length > 0 ? (
-                graphRelationships.map((item, index) => (
-                  <div
-                    key={index}
-                    className="bg-slate-950/70 border border-slate-850 rounded-xl p-3 text-xs"
-                  >
-                    <p className="font-semibold text-cyan-300">
-                      {item.start.labels.join(", ")} → {item.relationship.type} →{" "}
-                      {item.end.labels.join(", ")}
-                    </p>
-                    <p className="text-slate-500 text-[10px] mt-1">
-                      Properties: {JSON.stringify(item.start.properties)}
-                    </p>
-                  </div>
-                ))
-              ) : (
-                <div className="text-center py-12 border border-dashed border-slate-800 rounded-xl">
-                  <p className="text-xs text-slate-600 font-medium">No active graph relations mapped.</p>
+                <div className="bg-slate-900/40 border border-slate-800 rounded-xl p-4">
+                  <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block">Segment Risk Level</span>
+                  <span className="text-md font-bold text-slate-250 mt-1 block capitalize">
+                    {selectedSegment.replace("_", " ")}
+                  </span>
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    Index:{" "}
+                    <span className={`font-bold ${
+                      roadRisk?.riskLevel === "critical" || roadRisk?.riskLevel === "high" 
+                        ? "text-red-400" 
+                        : "text-emerald-400"
+                    }`}>
+                      {roadRisk?.riskLevel || "Low"}
+                    </span>
+                  </p>
                 </div>
-              )}
-            </div>
-          </div>
 
-        </div>
-
-        {/* Experience Memory Table */}
-        <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-5">
-          <h3 className="text-lg font-bold text-slate-200 mb-1">Experience Memory Ledger</h3>
-          <p className="text-xs text-slate-500 mb-4">Archived driving experience logs queried from MongoDB</p>
-
-          <div className="space-y-3 max-h-[350px] overflow-auto">
-            {experiences.length > 0 ? (
-              experiences.map((experience) => (
-                <div
-                  key={experience._id}
-                  className="bg-slate-950/75 border border-slate-850 rounded-xl p-3.5 flex flex-col sm:flex-row justify-between text-xs gap-3"
-                >
+                <div className="bg-slate-900/40 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
                   <div>
-                    <div className="flex items-center space-x-2">
-                      <span className="font-bold text-slate-200">{experience.vehicleId}</span>
-                      <span className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded uppercase font-semibold">
-                        {experience.eventType?.replace(/_/g, " ")}
-                      </span>
-                    </div>
-                    <p className="text-slate-400 mt-2">
-                      Location: <span className="text-slate-300 uppercase font-semibold">{experience.roadSegmentId}</span> | 
-                      Weather: <span className="text-slate-300 capitalize">{experience.weather}</span>
-                    </p>
-                    <p className="text-slate-500 text-[10px] mt-1 font-semibold italic">Reason: {experience.reason}</p>
+                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block">Shared Experiences</span>
+                    <span className="text-2xl font-extrabold text-white mt-1 block">{experiences.length}</span>
                   </div>
-                  
-                  <div className="text-left sm:text-right flex flex-col justify-between">
-                    <div>
-                      <span className="text-slate-500">Risk Score:</span>{" "}
-                      <span className="font-bold text-cyan-300">{experience.riskScore}</span>
-                    </div>
-                    <div className="mt-1">
-                      <span className="text-[10px] text-slate-500 block">ADAS Recommended Action</span>
-                      <span className="text-amber-400 font-bold capitalize">
-                        {experience.recommendedAction?.replace(/_/g, " ")}
-                      </span>
-                    </div>
+                  <span className="text-[8px] text-slate-600 font-mono">Ledger Count in MongoDB</span>
+                </div>
+
+                <div className="bg-slate-900/40 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
+                  <div>
+                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block">Graph Relationships</span>
+                    <span className="text-2xl font-extrabold text-white mt-1 block">{graphRelationships.length}</span>
+                  </div>
+                  <span className="text-[8px] text-slate-600 font-mono">Linked RDF Maps in Neo4j</span>
+                </div>
+              </div>
+
+              {/* Map Panel */}
+              <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-5">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-200">Proactive Road Hazards Map</h3>
+                    <p className="text-xs text-slate-500">Live monitoring of road grids and vehicle warnings</p>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <label className="text-xs text-slate-400 font-medium">Select Focus Grid:</label>
+                    <select
+                      value={selectedSegment}
+                      onChange={(e) => {
+                        setSelectedSegment(e.target.value);
+                        localStorage.setItem("active_vehicle_segment", e.target.value);
+                      }}
+                      className="bg-slate-950 border border-slate-800 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-cyan-500"
+                    >
+                      <option value="curve_42">Gateway Curve (Curve-42)</option>
+                      <option value="highway_101">Marine Drive (Highway-101)</option>
+                      <option value="intersection_alpha">Crawford (Intersection-Alpha)</option>
+                    </select>
                   </div>
                 </div>
-              ))
-            ) : (
-              <div className="text-center py-12 border border-dashed border-slate-800 rounded-xl">
-                <p className="text-xs text-slate-600 font-medium">No experience memory logged in MongoDB.</p>
+                <RiskMap activeRoadRisk={roadRisk} latestAlert={latestAlert} />
               </div>
-            )}
-          </div>
-        </div>
+
+              {/* Graph Clusters & Relationships Lists */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                {/* Risk Clusters */}
+                <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-5">
+                  <h3 className="text-lg font-bold text-slate-200 mb-1">Neo4j Hazard Clusters</h3>
+                  <p className="text-xs text-slate-500 mb-4">Adjacent segments linked by identical hazards (Cypher similarity)</p>
+                  
+                  <div className="space-y-2.5 max-h-[250px] overflow-auto">
+                    {riskClusters.length > 0 ? (
+                      riskClusters.map((cluster, index) => (
+                        <div
+                          key={index}
+                          className="bg-slate-950 border border-slate-850 rounded-xl p-3 text-xs flex justify-between items-center"
+                        >
+                          <div>
+                            <p className="font-bold text-slate-350">{cluster.segmentA} ↔ {cluster.segmentB}</p>
+                            <p className="text-slate-500 text-[10px] uppercase font-bold tracking-wider mt-0.5">
+                              Hazard: {cluster.sharedRiskType?.replace("_", " ")}
+                            </p>
+                          </div>
+                          <span className="bg-cyan-500/10 border border-cyan-900/30 text-cyan-300 px-2 py-0.5 rounded text-[9px] font-bold">
+                            Match Strength: {cluster.strength}
+                          </span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-12 border border-dashed border-slate-850 rounded-xl text-slate-600 text-xs">
+                        No shared threat clusters calculated yet.
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Graph relations */}
+                <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-5">
+                  <h3 className="text-lg font-bold text-slate-200 mb-1">Graph Knowledge Logs</h3>
+                  <p className="text-xs text-slate-500 mb-4">Semantic triples linking segments and weather from Neo4j</p>
+                  
+                  <div className="space-y-2.5 max-h-[250px] overflow-auto">
+                    {graphRelationships.length > 0 ? (
+                      graphRelationships.map((item, index) => (
+                        <div
+                          key={index}
+                          className="bg-slate-950 border border-slate-850 rounded-xl p-3 text-xs font-mono text-cyan-300"
+                        >
+                          <span className="text-slate-300 font-semibold font-sans">{item.start.labels.join(", ")}</span>
+                          {" -> "}{item.relationship.type}{" -> "}
+                          <span className="text-slate-300 font-semibold font-sans">{item.end.labels.join(", ")}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-12 border border-dashed border-slate-850 rounded-xl text-slate-600 text-xs">
+                        No relationships logged.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Mongo Ledger */}
+              <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-5">
+                <h3 className="text-lg font-bold text-slate-200 mb-1">Experience Memory Ledger</h3>
+                <p className="text-xs text-slate-500 mb-4">Historical record list registered under MongoDB</p>
+                
+                <div className="space-y-3 max-h-[300px] overflow-auto">
+                  {experiences.length > 0 ? (
+                    experiences.map((experience) => (
+                      <div
+                        key={experience._id}
+                        className="bg-slate-950 border border-slate-850 rounded-xl p-4 flex flex-col sm:flex-row justify-between text-xs gap-3"
+                      >
+                        <div>
+                          <div className="flex items-center space-x-2">
+                            <span className="font-bold text-slate-200">{experience.vehicleId}</span>
+                            <span className="bg-slate-800 text-slate-400 font-semibold uppercase text-[9px] px-1.5 py-0.5 rounded">
+                              {experience.eventType?.replace(/_/g, " ")}
+                            </span>
+                          </div>
+                          <p className="text-slate-400 mt-2">
+                            Sector: <span className="text-slate-200 uppercase font-mono">{experience.roadSegmentId}</span> | 
+                            Weather: <span className="text-slate-200 capitalize">{experience.weather}</span>
+                          </p>
+                          <p className="text-[10px] text-slate-500 italic mt-1">Reason: {experience.reason}</p>
+                        </div>
+                        <div className="text-left sm:text-right flex flex-col justify-between">
+                          <div>
+                            <span className="text-slate-500">Risk Score:</span>{" "}
+                            <span className="font-bold text-cyan-300">{experience.riskScore}</span>
+                          </div>
+                          <div>
+                            <span className="text-[9px] text-slate-500 block">Proactive Safety Action</span>
+                            <span className="text-amber-400 font-bold capitalize">
+                              {experience.recommendedAction?.replace(/_/g, " ")}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-12 border border-dashed border-slate-850 rounded-xl text-slate-600 text-xs">
+                      No experience records stored.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: Vehicle Cockpit */}
+          {activeTab === "cockpit" && (
+            <div className="animate-fade-in">
+              <VehicleCock />
+            </div>
+          )}
+
+          {/* TAB 3: Vehicle Auth */}
+          {activeTab === "auth" && (
+            <div className="animate-fade-in">
+              <VehicleAuth onVehicleActivated={handleVehicleActivated} />
+            </div>
+          )}
+
+          {/* TAB 4: V2X Warnings */}
+          {activeTab === "v2v" && (
+            <div className="animate-fade-in">
+              <V2VSharing />
+            </div>
+          )}
+
+        </main>
 
       </div>
     </div>
   );
 }
+
+// Wrapper to prevent name clash in files
+const VehicleCock = VehicleCockpit;
 
 export default Dashboard;

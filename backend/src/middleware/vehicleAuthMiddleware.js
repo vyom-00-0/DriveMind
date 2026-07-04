@@ -1,3 +1,6 @@
+const jwt = require("jsonwebtoken");
+
+const JWT_SECRET = process.env.JWT_SECRET || "drivemind_secret_jwt_key_999";
 const VEHICLE_SECRET_TOKEN = process.env.VEHICLE_SECRET_TOKEN || "vehicle_secret_token_123";
 
 const verifyVehicle = (req, res, next) => {
@@ -10,14 +13,27 @@ const verifyVehicle = (req, res, next) => {
     });
   }
 
-  if (token !== VEHICLE_SECRET_TOKEN) {
-    return res.status(403).json({
-      success: false,
-      message: "Forbidden: Invalid vehicle verification token"
-    });
+  // Allow static token for backwards compatibility
+  if (token === VEHICLE_SECRET_TOKEN) {
+    req.vehicleId = "legacy_vehicle_sim";
+    return next();
   }
 
-  next();
+  // Otherwise, verify as a dynamic vehicle JWT
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    if (decoded.role === "vehicle" || decoded.vehicleId) {
+      req.vehicleId = decoded.vehicleId;
+      return next();
+    }
+    throw new Error("Invalid token scope");
+  } catch (error) {
+    return res.status(403).json({
+      success: false,
+      message: "Forbidden: Invalid vehicle verification token",
+      error: error.message
+    });
+  }
 };
 
 module.exports = verifyVehicle;

@@ -29,6 +29,12 @@ export const registerUser = async (username, password) => {
   return response.data;
 };
 
+// Vehicle Authentication callers
+export const registerVehicle = async (vehicleId, vehicleType) => {
+  const response = await apiClient.post("/api/auth/vehicle", { vehicleId, vehicleType });
+  return response.data;
+};
+
 // Telemetry & Experience API callers
 export const getHealthStatus = async () => {
   const response = await apiClient.get("/api/health");
@@ -56,9 +62,10 @@ export const getRiskClusters = async () => {
 };
 
 export const sendTelemetry = async (telemetryData) => {
+  const activeToken = localStorage.getItem("active_vehicle_token") || "vehicle_secret_token_123";
   const response = await apiClient.post("/api/telemetry", telemetryData, {
     headers: {
-      "X-Vehicle-Token": "vehicle_secret_token_123"
+      "X-Vehicle-Token": activeToken
     }
   });
   return response.data;
