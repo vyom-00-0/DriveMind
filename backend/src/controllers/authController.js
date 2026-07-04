@@ -108,7 +108,43 @@ const login = async (req, res) => {
   }
 };
 
+const registerVehicle = async (req, res) => {
+  try {
+    const { vehicleId, vehicleType } = req.body;
+
+    if (!vehicleId) {
+      return res.status(400).json({
+        success: false,
+        message: "vehicleId is required"
+      });
+    }
+
+    const token = jwt.sign(
+      { vehicleId, vehicleType: vehicleType || "car", role: "vehicle" },
+      JWT_SECRET,
+      { expiresIn: "30d" }
+    );
+
+    res.status(201).json({
+      success: true,
+      message: "Vehicle registered successfully",
+      token,
+      vehicle: {
+        vehicleId,
+        vehicleType: vehicleType || "car"
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Vehicle registration failed",
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   register,
-  login
+  login,
+  registerVehicle
 };
